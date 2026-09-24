@@ -97,17 +97,6 @@ def load_custom_fonts():
     return default, default, default
 
 
-PREFIX_RECOVERIES = {
-    'M': ['AA', 'AB', 'M'],
-    'Z': ['B', 'AD', 'Z'],
-    'E': ['AB', 'E'],
-    'T': ['AB', 'T', 'B', 'KH'],
-    'G': ['AB', 'G', 'AD', 'KH', 'BE'],
-    'W': ['T', 'W', 'AB'],
-    'PB': ['AB', 'PB'],
-}
-
-
 def clean_plate(raw_str: str):
     """Pembersihan & validasi format plat nomor Indonesia (Awalan 1-2 huruf, Tengah 1-4 angka, Akhiran 0-3 huruf opsional)."""
     if not raw_str:
@@ -116,29 +105,19 @@ def clean_plate(raw_str: str):
     raw_clean = re.sub(r"[^A-Z0-9 ]", "", raw_str)
     
     def try_assemble_plate(p_raw, n_raw, s_raw=""):
-        p_cands = [ "".join(DIGIT_TO_CHAR.get(c, c) for c in p_raw) ]
-        if p_cands[0] in PREFIX_RECOVERIES:
-            p_cands.extend(PREFIX_RECOVERIES[p_cands[0]])
+        p_cand = "".join(DIGIT_TO_CHAR.get(c, c) for c in p_raw)
+        if not (1 <= len(p_cand) <= 2 and p_cand in VALID_REGION_CODES):
+            return None
 
-        for p_cand in p_cands:
-            if not (1 <= len(p_cand) <= 2 and p_cand in VALID_REGION_CODES):
-                continue
+        n_cand = "".join(CHAR_TO_DIGIT.get(c, c) for c in n_raw)
+        if not (n_cand.isdigit() and 1 <= len(n_cand) <= 4):
+            return None
 
-            n_cand = "".join(CHAR_TO_DIGIT.get(c, c) for c in n_raw)
-            if not (n_cand.isdigit() and 1 <= len(n_cand) <= 4):
-                continue
+        s_cand = "".join(DIGIT_TO_CHAR.get(c, c) for c in s_raw) if s_raw else ""
+        if len(s_cand) > 3 or (len(s_cand) > 0 and not s_cand.isalpha()):
+            return None
 
-            s_cand = "".join(DIGIT_TO_CHAR.get(c, c) for c in s_raw) if s_raw else ""
-            if len(s_cand) > 3 or (len(s_cand) > 0 and not s_cand.isalpha()):
-                continue
-
-            res = f"{p_cand} {n_cand} {s_cand}".strip()
-            # Tolak hasil palsu yang terlalu pendek (misal 'G 5', 'W 15') karena plat Indonesia minimal Memiliki 2 digit / 4 total karakter
-            if len(res.replace(" ", "")) < 4:
-                continue
-
-            return res
-        return None
+        return f"{p_cand} {n_cand} {s_cand}".strip()
 
     parts = raw_clean.split()
     if len(parts) >= 3:
@@ -176,33 +155,31 @@ def clean_plate(raw_str: str):
 
 
 def preprocess_crop(crop):
-    """Pra-pemrosesan citra plat nomor: Inversi Otomatis + 3x Upscale + Unsharp Sharpening + Bilateral Filter."""
+    """Pra-pemrosesan citra plat nomor: Inversi Otomatis (Hitam/Putih) + 3x Upscale + CLAHE + Bilateral Filter."""
     if crop is None or crop.size == 0:
         return crop
         
     h, w = crop.shape[:2]
-    # 1. Potong 18% bagian bawah plat untuk membuang baris angka bulan/tahun pajak (08.28)
+    # 1. Potong 20% bagian bawah plat untuk membuang baris angka bulan/tahun pajak (08.28)
     if h > 18:
-        crop_top = crop[0:int(h * 0.82), :]
+        crop_top = crop[0:int(h * 0.80), :]
     else:
         crop_top = crop
 
     # 2. Grayscale & Auto-Inversion (Plat Hitam Lama vs Plat Putih Baru)
-    gray = cv2.cvtColor(crop_top, cv2.COLOR_BGR2GRAY) if len(crop_top.shape) == 3 else crop_top.copy()
+    gray = cv2.cvtColor(crop_top, cv2.COLOR_BGR2GRAY)
     if np.mean(gray) < 125:  # Latar belakang gelap (plat hitam lama)
         gray = cv2.bitwise_not(gray)
 
     # 3. Upscale 3x dengan INTER_CUBIC
     gray = cv2.resize(gray, None, fx=3, fy=3, interpolation=cv2.INTER_CUBIC)
 
-    # 4. Sharpening Kernel (Mempertegas tepi huruf tanpa membuat 'AA' menyatu jadi 'M')
-    sharpen_kernel = np.array([[0, -1, 0],
-                               [-1, 5, -1],
-                               [0, -1, 0]], dtype=np.float32)
-    sharpened = cv2.filter2D(gray, -1, sharpen_kernel)
+    # 4. CLAHE Contrast Enhancement
+    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+    enhanced = clahe.apply(gray)
 
-    # 5. Filter Bilateral untuk menghilangkan noise pikselasi tanpa mengaburkan tepi huruf
-    filtered = cv2.bilateralFilter(sharpened, 5, 50, 50)
+    # 5. Filter Bilateral untuk menghilangkan noise pikselasi tanpa mengaburkan garis huruf
+    filtered = cv2.bilateralFilter(enhanced, 9, 75, 75)
     return filtered
 
 
@@ -476,7 +453,6 @@ def main():
                     x1, y1 = max(x1, 0), max(y1, 0)
                     x2, y2 = min(x2, w), min(y2, h)
                     crop_w = x2 - x1
-                    crop_h = y2 - y1
 
                     current_frame_tids.add(tid)
                     track_last_seen[tid] = frame_idx
@@ -486,15 +462,7 @@ def main():
                     # ---- Enqueue Task ke OCR Worker Thread secara Async ----
                     if is_plate_obj and crop_w >= MIN_PLATE_WIDTH:
                         if frame_idx % OCR_EVERY_N_FRAMES == 0:
-                            # Padding margin 12% agar huruf pertama (B, AB) & huruf akhir tidak terpotong tepi
-                            pad_w = int(crop_w * 0.12)
-                            pad_h = int(crop_h * 0.10)
-                            px1 = max(0, x1 - pad_w)
-                            py1 = max(0, y1 - pad_h)
-                            px2 = min(w, x2 + pad_w)
-                            py2 = min(h, y2 + pad_h)
-
-                            crop = frame[py1:py2, px1:px2]
+                            crop = frame[y1:y2, x1:x2]
                             if crop.size > 0:
                                 ocr_worker.enqueue(tid, crop.copy())
 
