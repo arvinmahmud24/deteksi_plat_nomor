@@ -654,9 +654,19 @@ def main():
                 print(f"[WARN] Gagal membaca stream ({retry_count}/{max_retries}). Reconnecting...")
                 cap.release()
                 time.sleep(2)
-                cap = cv2.VideoCapture(CCTV_URL)
+                # Coba reconnect ke sumber yang ditentukan user (bukan dialihkan ke CCTV_URL)
+                cap = cv2.VideoCapture(stream_url)
+                
+                # Jika sumber berupa URL DroidCam HTTP dan gagal, coba variasi URL DroidCam lain (/video <-> /mjpegfeed)
+                if not cap.isOpened() and isinstance(stream_url, str) and "4747" in stream_url:
+                    alt_url = stream_url.replace("/video", "/mjpegfeed") if "/video" in stream_url else stream_url.replace("/mjpegfeed", "/video")
+                    print(f"[INFO] Mencoba URL alternatif DroidCam: {alt_url}")
+                    cap = cv2.VideoCapture(alt_url)
+                    if cap.isOpened():
+                        stream_url = alt_url
+
                 if retry_count >= max_retries:
-                    print("[ERROR] Stream CCTV terputus total. Program berhenti.")
+                    print("[ERROR] Koneksi kamera/stream terputus total. Program berhenti.")
                     break
                 continue
 

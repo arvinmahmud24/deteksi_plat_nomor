@@ -1,4 +1,4 @@
-# High-Speed Indonesian ANPR & Gate Logger System
+# High-Speed Indonesian ANPR & Gate Logger System (PLAT)
 
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 [![YOLOv8](https://img.shields.io/badge/YOLOv8-Ultralytics-00FFFF?style=for-the-badge)](https://github.com/ultralytics/ultralytics)
@@ -7,218 +7,150 @@
 [![OpenPyXL](https://img.shields.io/badge/OpenPyXL-Excel_Embed-217346?style=for-the-badge)](https://openpyxl.readthedocs.io/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](LICENSE)
 
-Sistem Pengenal Plat Nomor Otomatis (ANPR / ALPR) khusus wilayah Indonesia yang mengintegrasikan deteksi objek **YOLOv8**, pelacakan **ByteTrack**, pembacaan karakter asinkron **Async Worker Queue EasyOCR**, serta pencatatan log harian otomatis ke spreadsheet Excel (`.xlsx`) lengkap dengan **foto crop plat nomor ter-embed presisi di Kolom F**.
+Sistem Pengenal Plat Nomor Otomatis (ANPR / ALPR) khusus wilayah Indonesia yang mengintegrasikan deteksi objek **YOLOv8**, pelacakan **ByteTrack**, pembacaan karakter asinkron **Async Worker Queue EasyOCR & PyTorch CNN**, serta pencatatan log harian otomatis ke spreadsheet Excel (`.xlsx`) lengkap dengan **foto crop plat nomor ter-embed presisi di Kolom F**.
 
-
-## Ringkasan Proyek
-
-Sistem ini dirancang untuk memantau stream CCTV (RTSP/HTTP Live Stream `.m3u8`/Webcam/File Video) secara real-time 24/7. Sistem memvalidasi format plat nomor Indonesia (awalan 1-2 huruf, 1-4 angka, 0-3 huruf akhiran), menerapkan *Multi-Frame Weighted Confidence Voting* per kendaraan, dan menyimpan foto bukti berwarna asli maupun versi *Grayscale/CLAHE preprocessed*.
-
+---
 
 ## Fitur Utama
 
-  Inferensi OCR dijalankan secara paralel pada *background thread worker pool*, menghasilkan GUI preview video yang *zero-lag* (FPS tetap tinggi).
-  Mengakumulasi hasil OCR dari beberapa frame per ID kendaraan (`ByteTrack`). Hasil dengan confidence tertinggi dikunci saat kendaraan melintas.
-  Setiap hari sistem otomatis membuat/memperbarui file Excel log harian tersendiri, membuat pengarsipan dan auditing data gerbang menjadi sangat rapi.
-  Foto crop plat nomor Grayscale / Preprocessed di-embed secara otomatis dan presisi ke dalam sel Excel di Kolom F dengan ukuran teratur.
-  Menyimpan foto warna asli di `storage/snapshots/` dan foto Grayscale/CLAHE di `storage/snapshots_grayscale/`.
-  Dilengkapi script `prepare_snapshot_dataset.py` yang otomatis memotong karakter dari snapshot CCTV menjadi dataset karakter baru untuk melatih ulang model PyTorch CNN (`train_character.py`).
-  Mencetak link URL lokal di terminal yang dapat diklik langsung (`Ctrl + Click`) untuk membuka foto bukti tanpa membuka Windows Explorer manual.
-  Badge overlay pada preview video menggunakan font khusus plat nomor Indonesia (`PlatNomor-WyVnn.ttf`).
-  Jika file Excel sedang dibuka di Microsoft Excel, data otomatis diselamatkan ke `data/log_plat_backup_YYYY-MM-DD.csv`.
+- **Async Worker Queue (`AsyncOCRWorker`)**: Inferensi OCR berjalan di background thread pool sehingga preview video tetap lancar tanpa *lag*.
+- **ByteTrack & Multi-Frame Voting**: Mengakumulasi hasil OCR dari beberapa frame per ID kendaraan untuk mengunci hasil dengan confidence tertinggi.
+- **Log Excel Harian Auto-Embed**: Log tersimpan di `data/log_plat_YYYY-MM-DD.xlsx` dengan foto crop grayscale plat nomor langsung ter-embed di Kolom F.
+- **Backup CSV Otomatis**: Jika file Excel sedang dibuka di aplikasi Microsoft Excel, log otomatis diselamatkan ke `data/log_plat_backup_YYYY-MM-DD.csv`.
+- **Dual Snapshot Storage**: Menyimpan citra berwarna asli di `storage/snapshots/` dan versi *grayscale/preprocessed* di `storage/snapshots_grayscale/`.
+- **Clickable Terminal Link**: Menampilkan link `file:///` di terminal untuk membuka hasil crop secara instant (`Ctrl + Click`).
+- **Font Khusus Plat Nomor**: Overlay pada video menggunakan font khusus plat nomor Indonesia (`assets/fonts/PlatNomor-WyVnn.ttf`).
+- **Pipeline Dataset & Training Custom**: Script generator dataset (`prepare_snapshot_dataset.py`) dan pelatih CNN (`train_character.py`).
 
+---
 
-## Struktur Direktori Proyek
+## Struktur Direktori
 
 ```text
 d:\PLAT\
-├── main.py                   # Script aplikasi ANPR utama
-├── prepare_snapshot_dataset.py # Auto generator dataset karakter dari foto snapshot CCTV
-├── train_character.py        # Script pelatihan CNN untuk dataset karakter plat nomor
-├── README.md                 # Dokumentasi proyek & panduan penggunaan
+├── main.py                     # Script utama ANPR & Gate Logger
+├── prepare_snapshot_dataset.py   # Generator dataset karakter dari snapshot CCTV
+├── train_character.py          # Script pelatihan CNN (PlateCharNetV2)
+├── README.md                   # Dokumentasi proyek
 │
-├── models/                   # Bobot Model Machine Learning
-│   ├── plate.pt              # Model YOLOv8 deteksi plat nomor Indonesia
-│   ├── char_model.pth        # Model PyTorch terlatih klasifikasi 36 karakter
-│   └── char_labels.json      # Pemetaan indeks kelas karakter
+├── models/                     # Bobot Model ML
+│   ├── plate.pt                # Model YOLOv8 deteksi plat nomor
+│   ├── char_model.pth          # Model PyTorch CNN karakter (opsional)
+│   └── char_labels.json        # Mapping label kelas karakter
 │
-├── assets/                   # Aset Statis Proyek
-│   └── fonts/                # Typografi resmi plat nomor Indonesia
-│       ├── PlatNomor-WyVnn.ttf
-│       └── PlatNomor-eZ2dm.otf
+├── assets/                     # Font & Aset Visual
+│   └── fonts/                  # Font khusus Plat Nomor Indonesia
 │
-├── data/                     # Output Log Excel Harian & Database
-│   ├── log_plat_YYYY-MM-DD.xlsx # Log Excel harian dengan embedded crop plat
-│   ├── log_plat_backup_YYYY-MM-DD.csv # Backup CSV harian (saat Excel dikunci)
-│   └── gate_log.db           # Database SQLite
+├── data/                       # Log Spreadsheet Excel & Backup CSV
+├── storage/                    # Simpanan Foto Snapshot Bukti
+│   ├── snapshots/              # Image crop berwarna (Original)
+│   └── snapshots_grayscale/    # Image crop grayscale (Preprocessed)
 │
-├── storage/                  # Foto Bukti Snapshot
-│   ├── snapshots/            # Snapshot foto crop warna asli (BGR)
-│   └── snapshots_grayscale/  # Snapshot foto crop Grayscale / CLAHE
-│
-└── dataset/                  # Dataset Pelatihan Karakter
-    └── archive/              # Dataset Karakter (36 kelas: 0-9 & A-Z)
+└── scripts/                    # Helper scripts (RTSP, DroidCam, List Devices)
 ```
 
+---
 
-## Arsitektur Sistem
+## Panduan Penggunaan (Quickstart)
 
-```text
-   [ CCTV STREAM ] ──► main.py (YOLOv8 + ByteTrack + Async EasyOCR)
-                             │
-                             ├──► data/log_plat_YYYY-MM-DD.xlsx (Log & Embedded Crop)
-                             │
-                             └──► storage/snapshots/ (Foto Crop Plat Real-World)
-                                       │
-                                       ▼
-                         prepare_snapshot_dataset.py (Auto Character Segmenter)
-                                       │
-                                       ▼
-                         dataset/archive/DatasetCharacter/ (Dataset Karakter)
-                                       │
-                                       ▼
-                         train_character.py (PyTorch CNN Training)
-                                       │
-                                       ▼
-                         models/char_model.pth (Model Terlatih)
-```
+### 1. Install Dependensi
+Pastikan Python 3.10+ sudah terinstall:
 
-
-## Cara Menjalankan Aplikasi
-
-### 1. Prasyarat & Instalasi Dependensi
-Pastikan Python 3.10+ telah terinstall:
 ```bash
 pip install ultralytics easyocr openpyxl opencv-python pillow numpy torch torchvision
 ```
 
-### 2. Menjalankan ANPR
-Untuk memulai pengawasan CCTV dan pencatatan log harian otomatis (menggunakan URL bawaan):
+### 2. Jalankan Program Utama
+Jalankan aplikasi dengan kamera default/stream bawaan:
+
 ```bash
 python main.py
 ```
 
-Anda juga bisa menentukan sumber video, IP Camera (RTSP/HTTP), atau webcam secara dinamis melalui argumen command line:
-```bash
-# Menggunakan Webcam
-python main.py --source 0 --name "Webcam Lokal"
+### 3. Contoh Argumen Sumber Video
 
-# Menggunakan file video
-python main.py --source "video_tes.mp4" --name "Video Testing"
+- **File Video Local**:
+  ```bash
+  python main.py --source "video/test_gate.mp4" --name "Gerbang-Depan"
+  ```
+- **Webcam (Device Index)**:
+  ```bash
+  python main.py --source 0 --name "Webcam-Laptop"
+  ```
+- **IP Camera / RTSP / HLS Stream**:
+  ```bash
+  python main.py --source "rtsp://admin:pass@192.168.1.100:554/stream1" --name "CCTV-Gate-1"
+  python main.py --source "https://cctv.jogjaprov.go.id/cctv-proxy/atcs-kota/stream.m3u8" --name "CCTV-Malioboro"
+  ```
 
-# Menggunakan IP Camera / RTSP
-python main.py --source "rtsp://admin:123@192.168.1.10:554/stream" --name "Gate 1"
+---
+
+## Panduan Koneksi DroidCam (Kamera HP)
+
+Anda dapat menggunakan smartphone Android/iOS sebagai kamera ANPR menggunakan **DroidCam**:
+
+### Mode 1: USB / Virtual Webcam (Sangat Direkomendasikan & Stabil)
+1. Install **DroidCam Client** di Windows dan App DroidCam di HP.
+2. Hubungkan HP via USB (aktifkan USB Debugging) atau via WiFi pada DroidCam Client PC.
+3. Klik **Start** pada DroidCam Client PC.
+4. Jalankan script menggunakan device index webcam Windows:
+   ```powershell
+   python main.py --source 0 --name "DroidCam-USB"
+   ```
+   *(Jika `--source 0` membuka webcam internal laptop, ganti ke `--source 1` atau `--source 2`)*.
+
+### Mode 2: WiFi Stream / HTTP IP
+1. Sambungkan HP dan Laptop ke jaringan WiFi yang sama.
+2. Buka aplikasi DroidCam di HP dan perhatikan **WiFi IP** (misal: `192.168.82.42`).
+3. *(Penting)* **Stop Streaming / tutup DroidCam Client di PC** terlebih dahulu agar port `4747` tidak di-lock oleh aplikasi Windows Client.
+4. Jalankan program dengan URL video DroidCam:
+   ```powershell
+   python main.py --source "http://192.168.82.42:4747/video" --name "DroidCam-WiFi"
+   ```
+
+### Troubleshoot Jika DroidCam Gagal Terhubung:
+Jika koneksi HTTP terputus atau gagal terhubung:
+1. **Coba endpoint alternatif `/mjpegfeed`**:
+   ```powershell
+   python main.py --source "http://192.168.82.42:4747/mjpegfeed" --name "DroidCam-WiFi"
+   ```
+2. **Gunakan Mode Webcam Index (`--source 0` / `--source 1`)** jika DroidCam Client di Windows sedang dalam posisi aktif:
+   ```powershell
+   python main.py --source 0
+   # atau jika webcam laptop aktif di index 0, gunakan index 1:
+   python main.py --source 1
+   ```
+3. **Mekanisme Automatic Fallback**: `main.py` sudah diperbarui agar saat terjadi kegagalan membaca frame/stream, sistem akan otomatis melakukan reconnect ke kamera DroidCam Anda (mencoba berganti antara `/video` dan `/mjpegfeed`) tanpa pernah dialihkan secara sepihak ke CCTV publik.
+
+---
+
+## Parameter Konfigurasi Penting (`main.py`)
+
+Anda dapat menyesuaikan beberapa batas ambang (threshold) di bagian awal file `main.py`:
+
+```python
+DET_CONF = 0.35              # Confidence threshold deteksi YOLOv8
+MIN_OCR_CONF = 0.55          # Minimum confidence OCR untuk dikumpulkan ke voting
+DEBOUNCE_SECONDS = 20        # Jeda detik pencegahan pencatatan ganda plat yang sama
+OCR_EVERY_N_FRAMES = 2       # Frekuensi OCR (dilakukan setiap N frame)
 ```
 
-### 3. Ekstraksi Dataset Karakter dari Snapshot CCTV
-Untuk memotong snapshot CCTV menjadi sampel dataset karakter baru:
-```bash
-python prepare_snapshot_dataset.py
-```
+---
 
-### 4. Melatih Ulang Model Karakter (Opsional)
-Untuk melatih ulang model Neural Network karakter PyTorch:
-```bash
-python train_character.py
-```
+## Dataset & Pelatihan Model Karakter Custom
 
+1. **Ekstrak Karakter dari Snapshot**:
+   ```bash
+   python prepare_snapshot_dataset.py
+   ```
+2. **Latih Model PyTorch CNN**:
+   ```bash
+   python train_character.py
+   ```
+   *Hasil pelatihan akan disimpan otomatis ke `models/char_model.pth` dan `models/char_labels.json`.*
 
-## Sumber Video: File, Webcam, LAN / Online Stream
-
-`main.py` mendukung beberapa tipe sumber video lewat argumen `--source`:
-
-- File video lokal (`.mp4`, `.avi`, ...)
-- Webcam / device number (numeric index, mis. `0`)
-- RTSP (kamera LAN), HLS (`.m3u8`) atau HTTP stream
-- Re-stream lokal (mis. menggunakan `ffmpeg`)
-
-Contoh singkat:
-
-- File video lokal:
-
-```bash
-python main.py --source "video_tes.mp4" --name "Tes-File"
-```
-
-- Webcam (device index):
-
-```bash
-python main.py --source 0 --name "Webcam-Depan"
-```
-
-- RTSP (kamera LAN / IP camera):
-
-```powershell
-python main.py --source "rtsp://user:pass@192.168.1.50:554/stream1" --name "Gate-LAN-1"
-```
-
-- HLS (.m3u8) atau HTTP stream:
-
-```powershell
-python main.py --source "http://192.168.1.50:8080/live/stream.m3u8" --name "Gate-HLS"
-```
-
-Prinsip & tips penting:
-
-- Device numeric: `main.py` mengubah `--source` ke `int` jika seluruh string hanya angka (campur angka+huruf → dianggap URL/file).
-- Jika stream RTSP gagal (frame kosong), coba put `rtsp_transport=tcp` melalui `ffmpeg` re-streamer atau gunakan `ffmpeg -rtsp_transport tcp -i "RTSP_URL" ...`.
-- HLS (.m3u8) kadang memiliki segment latency; untuk real-time gunakan RTSP bila tersedia.
-
-Menguji URL sebelum dipakai:
-
-- VLC: `Media → Open Network Stream` — paling cepat untuk verifikasi.
-- `ffprobe` untuk debug:
-
-```bash
-ffprobe "rtsp://user:pass@192.168.1.50:554/stream1"
-```
-
-Menggunakan `ffmpeg` sebagai proxy / re-streamer (rtsp -> local HTTP):
-
-```bash
-# contoh: jalankan re-stream lokal di port 8090
-ffmpeg -rtsp_transport tcp -i "rtsp://user:pass@192.168.1.50:554/stream1" -f mpegts http://0.0.0.0:8090/feed1
-```
-
-Kemudian arahkan `main.py` ke feed lokal:
-
-```powershell
-python main.py --source "http://127.0.0.1:8090/feed1" --name "Gate-Proxy"
-```
-
-Menjaga kredensial aman (contoh env vars):
-
-```powershell
-#$env:CAM_URL = "rtsp://user:pass@192.168.1.50:554/stream1"
-python main.py --source $env:CAM_URL --name "Gate-LAN-Env"
-```
-
-atau di bash:
-
-```bash
-export CAM_URL="rtsp://user:pass@192.168.1.50:554/stream1"
-python main.py --source "$CAM_URL" --name "Gate-LAN-Env"
-```
-
-Troubleshooting umum:
-
-- OpenCV / VideoCapture membaca frame kosong: periksa URL, network, dan coba VLC/ffmpeg. Coba re-stream dengan `-rtsp_transport tcp`.
-- Authentication failed: pastikan username/password benar dan URL path sesuai vendor (ONVIF tools membantu menemukan URL).
-- Latency / high CPU: turunkan resolusi stream (kamera side) atau tingkatkan `OCR_EVERY_N_FRAMES` di `main.py`.
-- Banyak kamera: jalankan satu proses per 1-2 kamera atau gunakan NVR/aggregator.
-
-Jika butuh, saya bisa menambahkan contoh konfigurasi `systemd`/Windows service untuk menjalankan `main.py` sebagai service per kamera.
-
-
-## Kepatuhan Privasi Data & UU PDP
-
-Sesuai UU No. 27 Tahun 2022 tentang Pelindungan Data Pribadi (UU PDP):
-
+---
 
 ## Lisensi
-Dikembangkan di bawah lisensi MIT. Bebas digunakan dan dikembangkan untuk otomatisasi lalu lintas dan gerbang keamanan di Indonesia.
 
-
-Jika Anda ingin saya menambahkan contoh konfigurasi, sistem service (Windows service / systemd), atau
-meningkatkan dokumentasi bahasa Inggris, beri tahu saya.
-```
+Proyek ini dirilis di bawah [Lisensi MIT](LICENSE). Bebas digunakan dan dikembangkan untuk keperluan riset maupun komersial otomatisasi lalu lintas di Indonesia.
