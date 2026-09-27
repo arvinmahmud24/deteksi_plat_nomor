@@ -141,11 +141,9 @@ Sistem ini memiliki **Siklus Umpan Balik Mandiri (Self-Learning Loop)** di mana 
 
 ---
 
-## 🌟 Fitur Utama
+## Fitur Utama
 =======
 ## Fitur Utama
->>>>>>> 4d72cdca27bc0d54850ae4f5af34ab2133d517a5
-
 - **Async Worker Queue (`AsyncOCRWorker`)**: Inferensi OCR berjalan di background thread pool sehingga preview video tetap lancar tanpa *lag*.
 - **ByteTrack & Multi-Frame Voting**: Mengakumulasi hasil OCR dari beberapa frame per ID kendaraan untuk mengunci hasil dengan confidence tertinggi.
 - **Log Excel Harian Auto-Embed**: Log tersimpan di `data/log_plat_YYYY-MM-DD.xlsx` dengan foto crop grayscale plat nomor langsung ter-embed di Kolom F.
