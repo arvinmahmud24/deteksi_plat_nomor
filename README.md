@@ -217,7 +217,3 @@ Sesuai UU No. 27 Tahun 2022 tentang Pelindungan Data Pribadi (UU PDP):
 
 ## Lisensi
 Dikembangkan di bawah lisensi MIT. Bebas digunakan dan dikembangkan untuk otomatisasi lalu lintas dan gerbang keamanan di Indonesia.
-
-
-Jika Anda ingin saya menambahkan contoh konfigurasi, sistem service (Windows service / systemd), atau
-meningkatkan dokumentasi bahasa Inggris, beri tahu saya.
