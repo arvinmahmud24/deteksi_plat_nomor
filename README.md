@@ -82,6 +82,65 @@ Sistem ini bekerja secara otomatis dan real-time melalui 7 tahap utama:
 
 ---
 
+## 🗄️ Hubungan Sistem dengan Dataset & Siklus Pelatihan (Dataset Lifecycle)
+
+Sistem ini memiliki **Siklus Umpan Balik Mandiri (Self-Learning Loop)** di mana hasil tangkapan kamera (*snapshots*) di dunia nyata otomatis dikonversi menjadi dataset baru untuk meningkatkan akurasi model PyTorch CNN dari waktu ke waktu.
+
+```text
+ ┌─────────────────────────────────────────────────────────────────────────┐
+ │                            LIVE ANPR (main.py)                          │
+ │  Input Kamera ──> YOLOv8 Deteksi ──> OCR Baca Plat ──> Simpan Snapshots │
+ └────────────────────────────────────┬────────────────────────────────────┘
+                                      │  File Crop (.jpg)
+                                      ▼  di storage/snapshots/
+ ┌─────────────────────────────────────────────────────────────────────────┐
+ │               DATASET GENERATOR (prepare_snapshot_dataset.py)            │
+ │  • Ekstrak Teks Plat dari Nama File                                     │
+ │  • Multi-Method Character Segmentation (Projection + CCA + Grid)        │
+ │  • Data Augmentations (Rotasi, Noise, Blur, Warp, Morph)                │
+ └────────────────────────────────────┬────────────────────────────────────┘
+                                      │  Karakter terklasifikasi (32x32)
+                                      ▼  di dataset/archive/DatasetCharacter/
+ ┌─────────────────────────────────────────────────────────────────────────┐
+ │                   MODEL TRAINER (train_character.py)                    │
+ │  • Melatih PyTorch CNN (PlateCharNetV2 dengan Residual Blocks)          │
+ │  • Weighted Sampling & Label Smoothing                                  │
+ └────────────────────────────────────┬────────────────────────────────────┘
+                                      │  Bobot Model Baru (.pth)
+                                      ▼  di models/char_model.pth
+ ┌─────────────────────────────────────────────────────────────────────────┐
+ │              AKURASI MENINGKAT PADA DETEKSI SANGAT PRESISI               │
+ └─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Detail Kaitan & Siklus Komponen Dataset:
+
+#### A. Pengumpulan Data Otomatis (`storage/snapshots/`)
+- Saat `main.py` beroperasi, setiap kali plat nomor berhasil dibaca dengan *confidence score* yang baik, sistem akan menyimpan foto potongannya ke `storage/snapshots/crop_YYYYMMDD_HHMMSS_PLATTEXT.jpg`.
+- Nama file ini menyimpan **Ground Truth Teks Plat Nomor** (contoh: `crop_20260927_175139_AB1287KP.jpg` yang berarti plat tersebut bertuliskan `AB 1287 KP`).
+
+#### B. Ekstraksi & Pemotongan Karakter (`prepare_snapshot_dataset.py`)
+- Script ini bertugas mengubah foto plat utuh menjadi dataset per-karakter (`0-9`, `A-Z`):
+  1. **Parsing Ground Truth**: Membaca teks `AB1287KP` dari nama file.
+  2. **Multi-Method Character Segmentation**:
+     - *Method 1 (Vertical Projection Profiling)*: Memotong karakter berdasarkan grafik piksel vertikal (gap antar huruf).
+     - *Method 2 (Connected Component Analysis / CCA)*: Fallback jika huruf saling menempel.
+     - *Method 3 (Proportional Grid Slicing)*: Fallback pembagi rata sesuai jumlah karakter.
+  3. **Resizing**: Mengubah setiap potong karakter menjadi ukuran standar $32 \times 32$ piksel.
+  4. **Data Augmentation**: Membuat 5 variasi buatan per karakter (rotasi $\pm 5^\circ$, kecerahan/kontras, blur, noise, serta distortif morfologi) untuk memperkaya dataset.
+  5. **Directing Output**: Gambar disimpan otomatis ke direktori kelasnya masing-masing di `dataset/archive/DatasetCharacter/<KARAKTER>/`.
+
+#### C. Pelatihan Model Klasifikasi Karakter (`train_character.py`)
+- Script ini menggunakan dataset dari `DatasetCharacter/` untuk melatih arsitektur **`PlateCharNetV2`** (Deep CNN dengan Residual Connections):
+  - **Balancing Class Imbalance**: Menerapkan *Weighted Random Sampler* agar karakter yang jarang muncul (seperti huruf `Z` atau angka `9`) mendapatkan perhatian seimbang dalam training.
+  - **Evaluasi Per-Kelas & Early Stopping**: Mencegah *overfitting* dan menghasilkan file model `models/char_model.pth` serta mapping `models/char_labels.json`.
+
+#### D. Pemanfaatan Kembali oleh System ANPR Utama (`main.py`)
+- Saat `main.py` dijalankan kembali, fungsi `load_cnn_ocr_model()` akan membaca `models/char_model.pth`.
+- Jika model ini ada, `main.py` beralih ke **Mode Hybrid (EasyOCR + PyTorch CNN)**, di mana pembacaan karakter menjadi jauh lebih presisi dan tahan terhadap gangguan pencahayaan maupun plat kotor.
+
+---
+
 ## 🌟 Fitur Utama
 
 - **Async Worker Queue (`AsyncOCRWorker`)**: Inferensi OCR berjalan di background thread pool sehingga preview video tetap lancar tanpa *lag*.
