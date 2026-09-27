@@ -123,6 +123,54 @@ python train_character.py
 ```
 
 
+## Menggunakan Kamera LAN (RTSP / HLS)
+
+Jika kamera Anda ada di LAN, gunakan URL RTSP atau HLS langsung sebagai `--source`. Langkah singkat:
+
+- Pastikan kamera dan mesin yang menjalankan `main.py` berada pada jaringan yang sama (subnet) atau ada routing.
+- Berikan IP statis atau DHCP reservation ke kamera (mis. `192.168.1.50`).
+- Aktifkan RTSP/ONVIF pada pengaturan kamera dan catat username/password.
+
+Contoh URL umum:
+
+- RTSP:
+  - `rtsp://user:pass@192.168.1.50:554/stream1`
+  - `rtsp://user:pass@192.168.1.50:554/h264`
+- HLS (.m3u8):
+  - `http://192.168.1.50:8080/live/stream.m3u8`
+
+Contoh menjalankan `main.py` dengan sumber LAN (PowerShell):
+
+```powershell
+python main.py --source "rtsp://user:pass@192.168.1.50:554/stream1" --name "Gate-LAN-1"
+```
+
+Jika VideoCapture/FFmpeg gagal karena transport (UDP vs TCP), Anda dapat re-stream RTSP menjadi HTTP lokal menggunakan `ffmpeg` dan memakai URL lokal di `main.py`.
+
+Contoh re-streamer (lihat `scripts/`):
+
+- Linux / macOS (bash): `scripts/restream_rtsp.sh`
+- Windows (PowerShell): `scripts/restream_rtsp.ps1`
+
+Contoh perintah `ffmpeg` (rtsp -> local HTTP MPEG-TS):
+
+```bash
+ffmpeg -rtsp_transport tcp -i "rtsp://user:pass@192.168.1.50:554/stream1" -f mpegts http://0.0.0.0:8090/feed1
+```
+
+Lalu gunakan lokal HTTP URL di `main.py`:
+
+```powershell
+python main.py --source "http://127.0.0.1:8090/feed1" --name "Gate-LAN-1"
+```
+
+Keamanan & catatan:
+
+- Jangan commit kredensial kamera ke repo. Simpan di environment variables atau manager secrets.
+- Untuk production, gunakan RTSP proxy atau RTSP server (mis. RTSP Simple Server) untuk stabilitas.
+- Jika Anda menggunakan banyak kamera, pertimbangkan NVR/aggregator atau jalankan worker terpisah per kamera.
+
+
 ## Kepatuhan Privasi Data & UU PDP
 
 Sesuai UU No. 27 Tahun 2022 tentang Pelindungan Data Pribadi (UU PDP):
