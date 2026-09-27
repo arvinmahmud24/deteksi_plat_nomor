@@ -11,7 +11,7 @@ Sistem Pengenal Plat Nomor Otomatis (ANPR / ALPR) khusus wilayah Indonesia yang 
 
 ---
 
-## 🛠️ Cara Kerja Sistem (System Architecture & Pipeline)
+## Cara Kerja Sistem (System Architecture & Pipeline)
 
 Sistem ini bekerja secara otomatis dan real-time melalui 7 tahap utama:
 
@@ -82,6 +82,7 @@ Sistem ini bekerja secara otomatis dan real-time melalui 7 tahap utama:
 
 ---
 
+<<<<<<< HEAD
 ## 🗄️ Hubungan Sistem dengan Dataset & Siklus Pelatihan (Dataset Lifecycle)
 
 Sistem ini memiliki **Siklus Umpan Balik Mandiri (Self-Learning Loop)** di mana hasil tangkapan kamera (*snapshots*) di dunia nyata otomatis dikonversi menjadi dataset baru untuk meningkatkan akurasi model PyTorch CNN dari waktu ke waktu.
@@ -142,6 +143,9 @@ Sistem ini memiliki **Siklus Umpan Balik Mandiri (Self-Learning Loop)** di mana 
 ---
 
 ## 🌟 Fitur Utama
+=======
+## Fitur Utama
+>>>>>>> 4d72cdca27bc0d54850ae4f5af34ab2133d517a5
 
 - **Async Worker Queue (`AsyncOCRWorker`)**: Inferensi OCR berjalan di background thread pool sehingga preview video tetap lancar tanpa *lag*.
 - **ByteTrack & Multi-Frame Voting**: Mengakumulasi hasil OCR dari beberapa frame per ID kendaraan untuk mengunci hasil dengan confidence tertinggi.
@@ -154,7 +158,7 @@ Sistem ini memiliki **Siklus Umpan Balik Mandiri (Self-Learning Loop)** di mana 
 
 ---
 
-## 📁 Struktur Direktori
+## Struktur Direktori
 
 ```text
 d:\PLAT\
@@ -181,7 +185,7 @@ d:\PLAT\
 
 ---
 
-## 🚀 Panduan Penggunaan (Quickstart)
+## Panduan Penggunaan (Quickstart)
 
 ### 1. Install Dependensi
 Pastikan Python 3.10+ sudah terinstall:
@@ -215,7 +219,7 @@ python main.py
 
 ---
 
-## 📱 Panduan Koneksi DroidCam (Kamera HP)
+## Panduan Koneksi DroidCam (Kamera HP)
 
 Anda dapat menggunakan smartphone Android/iOS sebagai kamera ANPR menggunakan **DroidCam**:
 
@@ -238,7 +242,7 @@ Anda dapat menggunakan smartphone Android/iOS sebagai kamera ANPR menggunakan **
    python main.py --source "http://192.168.82.42:4747/video" --name "DroidCam-WiFi"
    ```
 
-### 🛠️ Troubleshoot Jika DroidCam Gagal Terhubung:
+### Troubleshoot Jika DroidCam Gagal Terhubung:
 Jika koneksi HTTP terputus atau gagal terhubung:
 1. **Coba endpoint alternatif `/mjpegfeed`**:
    ```powershell
@@ -254,7 +258,7 @@ Jika koneksi HTTP terputus atau gagal terhubung:
 
 ---
 
-## ⚙️ Parameter Konfigurasi Penting (`main.py`)
+## Parameter Konfigurasi Penting (`main.py`)
 
 Anda dapat menyesuaikan beberapa batas ambang (threshold) di bagian awal file `main.py`:
 
@@ -267,7 +271,7 @@ OCR_EVERY_N_FRAMES = 2       # Frekuensi OCR (dilakukan setiap N frame)
 
 ---
 
-## 🧠 Dataset & Pelatihan Model Karakter Custom
+## Dataset & Pelatihan Model Karakter Custom
 
 1. **Ekstrak Karakter dari Snapshot**:
    ```bash
@@ -281,5 +285,5 @@ OCR_EVERY_N_FRAMES = 2       # Frekuensi OCR (dilakukan setiap N frame)
 
 ---
 
-## 📄 Lisensi
+## Lisensi
 Proyek ini dirilis di bawah [Lisensi MIT](LICENSE). Bebas digunakan dan dikembangkan untuk keperluan riset maupun komersial otomatisasi lalu lintas di Indonesia.
