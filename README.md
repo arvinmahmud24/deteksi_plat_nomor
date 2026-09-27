@@ -9,36 +9,24 @@
 
 Sistem Pengenal Plat Nomor Otomatis (ANPR / ALPR) khusus wilayah Indonesia yang mengintegrasikan deteksi objek **YOLOv8**, pelacakan **ByteTrack**, pembacaan karakter asinkron **Async Worker Queue EasyOCR**, serta pencatatan log harian otomatis ke spreadsheet Excel (`.xlsx`) lengkap dengan **foto crop plat nomor ter-embed presisi di Kolom F**.
 
----
 
 ## Ringkasan Proyek
 
 Sistem ini dirancang untuk memantau stream CCTV (RTSP/HTTP Live Stream `.m3u8`/Webcam/File Video) secara real-time 24/7. Sistem memvalidasi format plat nomor Indonesia (awalan 1-2 huruf, 1-4 angka, 0-3 huruf akhiran), menerapkan *Multi-Frame Weighted Confidence Voting* per kendaraan, dan menyimpan foto bukti berwarna asli maupun versi *Grayscale/CLAHE preprocessed*.
 
----
 
 ## Fitur Utama
 
-- **Async Multithreading OCR Queue (`AsyncOCRWorker`)**:
   Inferensi OCR dijalankan secara paralel pada *background thread worker pool*, menghasilkan GUI preview video yang *zero-lag* (FPS tetap tinggi).
-- **Multi-Frame Weighted Confidence Voting**:
   Mengakumulasi hasil OCR dari beberapa frame per ID kendaraan (`ByteTrack`). Hasil dengan confidence tertinggi dikunci saat kendaraan melintas.
-- **Daily Log Rollover (`log_plat_YYYY-MM-DD.xlsx`)**:
   Setiap hari sistem otomatis membuat/memperbarui file Excel log harian tersendiri, membuat pengarsipan dan auditing data gerbang menjadi sangat rapi.
-- **Image Embedding di Sel Excel (Kolom F)**:
   Foto crop plat nomor Grayscale / Preprocessed di-embed secara otomatis dan presisi ke dalam sel Excel di Kolom F dengan ukuran teratur.
-- **Dual Snapshot Storage**:
   Menyimpan foto warna asli di `storage/snapshots/` dan foto Grayscale/CLAHE di `storage/snapshots_grayscale/`.
-- **Continuous Learning Dataset Pipeline**:
   Dilengkapi script `prepare_snapshot_dataset.py` yang otomatis memotong karakter dari snapshot CCTV menjadi dataset karakter baru untuk melatih ulang model PyTorch CNN (`train_character.py`).
-- **Clickable Terminal Links (`file:///`)**:
   Mencetak link URL lokal di terminal yang dapat diklik langsung (`Ctrl + Click`) untuk membuka foto bukti tanpa membuka Windows Explorer manual.
-- **Custom Typography Overlay**:
   Badge overlay pada preview video menggunakan font khusus plat nomor Indonesia (`PlatNomor-WyVnn.ttf`).
-- **Safe Fallback CSV**:
   Jika file Excel sedang dibuka di Microsoft Excel, data otomatis diselamatkan ke `data/log_plat_backup_YYYY-MM-DD.csv`.
 
----
 
 ## Struktur Direktori Proyek
 
@@ -72,7 +60,6 @@ d:\PLAT\
     └── archive/              # Dataset Karakter (36 kelas: 0-9 & A-Z)
 ```
 
----
 
 ## Arsitektur Sistem
 
@@ -96,7 +83,6 @@ d:\PLAT\
                          models/char_model.pth (Model Terlatih)
 ```
 
----
 
 ## Cara Menjalankan Aplikasi
 
@@ -107,9 +93,21 @@ pip install ultralytics easyocr openpyxl opencv-python pillow numpy torch torchv
 ```
 
 ### 2. Menjalankan ANPR
-Untuk memulai pengawasan CCTV dan pencatatan log harian otomatis:
+Untuk memulai pengawasan CCTV dan pencatatan log harian otomatis (menggunakan URL bawaan):
 ```bash
 python main.py
+```
+
+Anda juga bisa menentukan sumber video, IP Camera (RTSP/HTTP), atau webcam secara dinamis melalui argumen command line:
+```bash
+# Menggunakan Webcam
+python main.py --source 0 --name "Webcam Lokal"
+
+# Menggunakan file video
+python main.py --source "video_tes.mp4" --name "Video Testing"
+
+# Menggunakan IP Camera / RTSP
+python main.py --source "rtsp://admin:123@192.168.1.10:554/stream" --name "Gate 1"
 ```
 
 ### 3. Ekstraksi Dataset Karakter dari Snapshot CCTV
@@ -124,16 +122,16 @@ Untuk melatih ulang model Neural Network karakter PyTorch:
 python train_character.py
 ```
 
----
 
 ## Kepatuhan Privasi Data & UU PDP
 
 Sesuai UU No. 27 Tahun 2022 tentang Pelindungan Data Pribadi (UU PDP):
-- Tempatkan papan pemberitahuan di gerbang bahwa area dipantau CCTV dan sistem pencatatan ANPR.
-- Tetapkan kebijakan masa retensi log dan foto bukti (direkomendasikan 90 hari).
-- Akses file log spreadsheet dan storage foto dibatasi untuk pihak berwenang.
 
----
 
 ## Lisensi
 Dikembangkan di bawah lisensi MIT. Bebas digunakan dan dikembangkan untuk otomatisasi lalu lintas dan gerbang keamanan di Indonesia.
+
+
+Jika Anda ingin saya menambahkan contoh konfigurasi, sistem service (Windows service / systemd), atau
+meningkatkan dokumentasi bahasa Inggris, beri tahu saya.
+```
