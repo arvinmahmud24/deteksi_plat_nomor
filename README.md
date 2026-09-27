@@ -221,4 +221,3 @@ Dikembangkan di bawah lisensi MIT. Bebas digunakan dan dikembangkan untuk otomat
 
 Jika Anda ingin saya menambahkan contoh konfigurasi, sistem service (Windows service / systemd), atau
 meningkatkan dokumentasi bahasa Inggris, beri tahu saya.
-```
