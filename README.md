@@ -152,5 +152,5 @@ OCR_EVERY_N_FRAMES = 2       # Frekuensi OCR (dilakukan setiap N frame)
 ---
 
 ## Lisensi
-
 Proyek ini dirilis di bawah [Lisensi MIT](LICENSE). Bebas digunakan dan dikembangkan untuk keperluan riset maupun komersial otomatisasi lalu lintas di Indonesia.
+
