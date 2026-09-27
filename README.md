@@ -82,8 +82,7 @@ Sistem ini bekerja secara otomatis dan real-time melalui 7 tahap utama:
 
 ---
 
-<<<<<<< HEAD
-## 🗄️ Hubungan Sistem dengan Dataset & Siklus Pelatihan (Dataset Lifecycle)
+## Hubungan Sistem dengan Dataset & Siklus Pelatihan (Dataset Lifecycle)
 
 Sistem ini memiliki **Siklus Umpan Balik Mandiri (Self-Learning Loop)** di mana hasil tangkapan kamera (*snapshots*) di dunia nyata otomatis dikonversi menjadi dataset baru untuk meningkatkan akurasi model PyTorch CNN dari waktu ke waktu.
 
