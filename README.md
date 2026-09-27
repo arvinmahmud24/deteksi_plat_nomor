@@ -123,52 +123,91 @@ python train_character.py
 ```
 
 
-## Menggunakan Kamera LAN (RTSP / HLS)
+## Sumber Video: File, Webcam, LAN / Online Stream
 
-Jika kamera Anda ada di LAN, gunakan URL RTSP atau HLS langsung sebagai `--source`. Langkah singkat:
+`main.py` mendukung beberapa tipe sumber video lewat argumen `--source`:
 
-- Pastikan kamera dan mesin yang menjalankan `main.py` berada pada jaringan yang sama (subnet) atau ada routing.
-- Berikan IP statis atau DHCP reservation ke kamera (mis. `192.168.1.50`).
-- Aktifkan RTSP/ONVIF pada pengaturan kamera dan catat username/password.
+- File video lokal (`.mp4`, `.avi`, ...)
+- Webcam / device number (numeric index, mis. `0`)
+- RTSP (kamera LAN), HLS (`.m3u8`) atau HTTP stream
+- Re-stream lokal (mis. menggunakan `ffmpeg`)
 
-Contoh URL umum:
+Contoh singkat:
 
-- RTSP:
-  - `rtsp://user:pass@192.168.1.50:554/stream1`
-  - `rtsp://user:pass@192.168.1.50:554/h264`
-- HLS (.m3u8):
-  - `http://192.168.1.50:8080/live/stream.m3u8`
+- File video lokal:
 
-Contoh menjalankan `main.py` dengan sumber LAN (PowerShell):
+```bash
+python main.py --source "video_tes.mp4" --name "Tes-File"
+```
+
+- Webcam (device index):
+
+```bash
+python main.py --source 0 --name "Webcam-Depan"
+```
+
+- RTSP (kamera LAN / IP camera):
 
 ```powershell
 python main.py --source "rtsp://user:pass@192.168.1.50:554/stream1" --name "Gate-LAN-1"
 ```
 
-Jika VideoCapture/FFmpeg gagal karena transport (UDP vs TCP), Anda dapat re-stream RTSP menjadi HTTP lokal menggunakan `ffmpeg` dan memakai URL lokal di `main.py`.
+- HLS (.m3u8) atau HTTP stream:
 
-Contoh re-streamer (lihat `scripts/`):
+```powershell
+python main.py --source "http://192.168.1.50:8080/live/stream.m3u8" --name "Gate-HLS"
+```
 
-- Linux / macOS (bash): `scripts/restream_rtsp.sh`
-- Windows (PowerShell): `scripts/restream_rtsp.ps1`
+Prinsip & tips penting:
 
-Contoh perintah `ffmpeg` (rtsp -> local HTTP MPEG-TS):
+- Device numeric: `main.py` mengubah `--source` ke `int` jika seluruh string hanya angka (campur angka+huruf → dianggap URL/file).
+- Jika stream RTSP gagal (frame kosong), coba put `rtsp_transport=tcp` melalui `ffmpeg` re-streamer atau gunakan `ffmpeg -rtsp_transport tcp -i "RTSP_URL" ...`.
+- HLS (.m3u8) kadang memiliki segment latency; untuk real-time gunakan RTSP bila tersedia.
+
+Menguji URL sebelum dipakai:
+
+- VLC: `Media → Open Network Stream` — paling cepat untuk verifikasi.
+- `ffprobe` untuk debug:
 
 ```bash
+ffprobe "rtsp://user:pass@192.168.1.50:554/stream1"
+```
+
+Menggunakan `ffmpeg` sebagai proxy / re-streamer (rtsp -> local HTTP):
+
+```bash
+# contoh: jalankan re-stream lokal di port 8090
 ffmpeg -rtsp_transport tcp -i "rtsp://user:pass@192.168.1.50:554/stream1" -f mpegts http://0.0.0.0:8090/feed1
 ```
 
-Lalu gunakan lokal HTTP URL di `main.py`:
+Kemudian arahkan `main.py` ke feed lokal:
 
 ```powershell
-python main.py --source "http://127.0.0.1:8090/feed1" --name "Gate-LAN-1"
+python main.py --source "http://127.0.0.1:8090/feed1" --name "Gate-Proxy"
 ```
 
-Keamanan & catatan:
+Menjaga kredensial aman (contoh env vars):
 
-- Jangan commit kredensial kamera ke repo. Simpan di environment variables atau manager secrets.
-- Untuk production, gunakan RTSP proxy atau RTSP server (mis. RTSP Simple Server) untuk stabilitas.
-- Jika Anda menggunakan banyak kamera, pertimbangkan NVR/aggregator atau jalankan worker terpisah per kamera.
+```powershell
+#$env:CAM_URL = "rtsp://user:pass@192.168.1.50:554/stream1"
+python main.py --source $env:CAM_URL --name "Gate-LAN-Env"
+```
+
+atau di bash:
+
+```bash
+export CAM_URL="rtsp://user:pass@192.168.1.50:554/stream1"
+python main.py --source "$CAM_URL" --name "Gate-LAN-Env"
+```
+
+Troubleshooting umum:
+
+- OpenCV / VideoCapture membaca frame kosong: periksa URL, network, dan coba VLC/ffmpeg. Coba re-stream dengan `-rtsp_transport tcp`.
+- Authentication failed: pastikan username/password benar dan URL path sesuai vendor (ONVIF tools membantu menemukan URL).
+- Latency / high CPU: turunkan resolusi stream (kamera side) atau tingkatkan `OCR_EVERY_N_FRAMES` di `main.py`.
+- Banyak kamera: jalankan satu proses per 1-2 kamera atau gunakan NVR/aggregator.
+
+Jika butuh, saya bisa menambahkan contoh konfigurasi `systemd`/Windows service untuk menjalankan `main.py` sebagai service per kamera.
 
 
 ## Kepatuhan Privasi Data & UU PDP
