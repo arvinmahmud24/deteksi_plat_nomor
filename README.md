@@ -11,7 +11,78 @@ Sistem Pengenal Plat Nomor Otomatis (ANPR / ALPR) khusus wilayah Indonesia yang 
 
 ---
 
-## Fitur Utama
+## 🛠️ Cara Kerja Sistem (System Architecture & Pipeline)
+
+Sistem ini bekerja secara otomatis dan real-time melalui 7 tahap utama:
+
+```text
+[ Input Stream Video / Kamera ]
+              │
+              ▼
+    1. Input Frame Acquisition (Webcam / DroidCam / RTSP / Video File)
+              │
+              ▼
+    2. Deteksi Bounding Box & Auto-Merge (YOLOv8)
+              │
+              ▼
+    3. Multi-Object Tracking (ByteTrack ID)
+              │
+              ▼
+    4. Async Worker Queue & Preprocessing (Multithreading Pool)
+              │
+              ▼
+    5. Hybrid OCR Engine (EasyOCR + PyTorch CNN Character Recognition)
+              │
+              ▼
+    6. Pembersihan & Normalisasi Format Indonesia (RegEx & Confusable Mapping)
+              │
+              ▼
+    7. Finalisasi Log & Embedding Excel (.xlsx & CSV Backup)
+```
+
+---
+
+### Detail Penjelasan 7 Tahap Pipeline:
+
+#### 1. Input Frame Acquisition (Stream Video & Auto-Reconnect)
+- System menerima masukan video dari berbagai sumber seperti Webcam Local (`0`, `1`), DroidCam (WiFi HTTP/USB DirectShow), maupun IP Camera Stream (RTSP/HLS `.m3u8`).
+- Dilengkapi mekanisme **Auto-Reconnect & Fallback URL**: Jika koneksi jaringan/kamera terputus sementara, sistem akan otomatis melakukan percobaan sambung ulang tanpa mengalihkan sumber kamera secara sepihak.
+
+#### 2. Deteksi Objek Plat Nomor & Box Merging (YOLOv8)
+- Model `YOLOv8` (`models/plate.pt`) memindai setiap frame untuk menemukan lokasi objek plat nomor kendaraan.
+- **Logic Box Merging**: Jika plat terdeteksi secara terpisah (misal baris atas huruf awalan dan baris bawah angka terpotong menjadi 2 box oleh YOLO), sistem akan secara cerdas mengabungkan (*merge*) kotak-kotak tersebut menjadi 1 Bounding Box plat nomor yang utuh.
+
+#### 3. Pelacakan Objek Kendaraan (ByteTrack Multi-Object Tracking)
+- Setiap plat nomor yang terdeteksi diberi ID pelacakan unik (`Track ID`) menggunakan algoritma **ByteTrack**.
+- Dengan pelacakan ini, kendaraan yang melintas dalam puluhan frame video akan diidentifikasi sebagai 1 objek kendaraan yang sama, mencegah terjadinya pembacaan berulang (spamming log).
+
+#### 4. Async Worker Queue & Pra-pemrosesan (Multithreading OCR)
+- Untuk menjaga frame rate GUI tetap tinggi (tanpa *lag* atau patah-patah), proses pembacaan teks OCR tidak dijalankan di thread utama visual, melainkan dimasukkan ke dalam **`AsyncOCRWorker`** berbasis `Queue` Multithreading.
+- **Preprocessing Crop**: Bagian bawah plat (seperti tanggal/bulan pajak) dibuang 20%, kemudian citra di-upscale berwarna secara presisi agar karakter plat terbaca jelas oleh engine OCR.
+
+#### 5. Hybrid OCR Engine (EasyOCR + PyTorch CNN)
+- Sistem mendukung mode dual-engine:
+  - **EasyOCR Engine**: Membaca susunan teks plat nomor berwarna secara natural.
+  - **PyTorch CNN Character Recognition (`PlateCharNetV2`)**: Melakukan segmentasi vertical projection dan memprediksi karakter per karakter menggunakan arsitektur Residual Network.
+- Kedua engine berkolaborasi, dan hasil dengan nilai kepastian (*confidence score*) tertinggi akan dipilih.
+
+#### 6. Pembersihan & Normalisasi Plat Nomor Indonesia (`clean_plate`)
+- Teks mentah dari OCR divalidasi dan disesuaikan dengan aturan format Plat Nomor Indonesia:
+  - **Awalan**: 1–2 Huruf Kode Wilayah valid di Indonesia (contoh: `B`, `AB`, `DK`, `N`, `L`, dll).
+  - **Angka**: 1–4 Digit Angka Registrasi.
+  - **Akhiran**: 0–3 Huruf Seri Opsional.
+- Menerapkan **Confusable Mapping**: Mengoreksi kesalahan pembacaan OCR yang tertukar antara huruf dan angka (seperti `'O'`/`'D'` $\leftrightarrow$ `'0'`, `'I'`/`'L'` $\leftrightarrow$ `'1'`, `'S'` $\leftrightarrow$ `'5'`, `'B'` $\leftrightarrow$ `'8'`).
+
+#### 7. Multi-Frame Voting, Snapshot & Auto-Embed Excel
+- **Weighted Voting**: Selama kendaraan berada di dalam jangkauan kamera, sistem mengumpulkan beberapa kandidat bacaan OCR. Saat kendaraan selesai melintas (keluar frame), sistem memilih hasil dengan kombinasi *confidence* & kualitas gambar terbaik.
+- **Snapshot Storage**: Menyimpan 2 file gambar bukti ke dalam disk:
+  1. `storage/snapshots/`: Gambar crop plat berwarna asli.
+  2. `storage/snapshots_grayscale/`: Gambar crop versi grayscale.
+- **Auto-Embed Excel**: Log harian secara otomatis ditulis ke file `data/log_plat_YYYY-MM-DD.xlsx`. Foto crop grayscale ditempelkan (*embedded*) langsung ke **Kolom F** di dalam tabel sel Excel. Jika file Excel sedang dibuka di aplikasi PC, log otomatis diselamatkan ke file backup `data/log_plat_backup_YYYY-MM-DD.csv`.
+
+---
+
+## 🌟 Fitur Utama
 
 - **Async Worker Queue (`AsyncOCRWorker`)**: Inferensi OCR berjalan di background thread pool sehingga preview video tetap lancar tanpa *lag*.
 - **ByteTrack & Multi-Frame Voting**: Mengakumulasi hasil OCR dari beberapa frame per ID kendaraan untuk mengunci hasil dengan confidence tertinggi.
@@ -24,7 +95,7 @@ Sistem Pengenal Plat Nomor Otomatis (ANPR / ALPR) khusus wilayah Indonesia yang 
 
 ---
 
-## Struktur Direktori
+## 📁 Struktur Direktori
 
 ```text
 d:\PLAT\
@@ -51,7 +122,7 @@ d:\PLAT\
 
 ---
 
-## Panduan Penggunaan (Quickstart)
+## 🚀 Panduan Penggunaan (Quickstart)
 
 ### 1. Install Dependensi
 Pastikan Python 3.10+ sudah terinstall:
@@ -85,7 +156,7 @@ python main.py
 
 ---
 
-## Panduan Koneksi DroidCam (Kamera HP)
+## 📱 Panduan Koneksi DroidCam (Kamera HP)
 
 Anda dapat menggunakan smartphone Android/iOS sebagai kamera ANPR menggunakan **DroidCam**:
 
@@ -108,7 +179,7 @@ Anda dapat menggunakan smartphone Android/iOS sebagai kamera ANPR menggunakan **
    python main.py --source "http://192.168.82.42:4747/video" --name "DroidCam-WiFi"
    ```
 
-### Troubleshoot Jika DroidCam Gagal Terhubung:
+### 🛠️ Troubleshoot Jika DroidCam Gagal Terhubung:
 Jika koneksi HTTP terputus atau gagal terhubung:
 1. **Coba endpoint alternatif `/mjpegfeed`**:
    ```powershell
@@ -124,7 +195,7 @@ Jika koneksi HTTP terputus atau gagal terhubung:
 
 ---
 
-## Parameter Konfigurasi Penting (`main.py`)
+## ⚙️ Parameter Konfigurasi Penting (`main.py`)
 
 Anda dapat menyesuaikan beberapa batas ambang (threshold) di bagian awal file `main.py`:
 
@@ -137,7 +208,7 @@ OCR_EVERY_N_FRAMES = 2       # Frekuensi OCR (dilakukan setiap N frame)
 
 ---
 
-## Dataset & Pelatihan Model Karakter Custom
+## 🧠 Dataset & Pelatihan Model Karakter Custom
 
 1. **Ekstrak Karakter dari Snapshot**:
    ```bash
@@ -151,6 +222,5 @@ OCR_EVERY_N_FRAMES = 2       # Frekuensi OCR (dilakukan setiap N frame)
 
 ---
 
-## Lisensi
+## 📄 Lisensi
 Proyek ini dirilis di bawah [Lisensi MIT](LICENSE). Bebas digunakan dan dikembangkan untuk keperluan riset maupun komersial otomatisasi lalu lintas di Indonesia.
-
