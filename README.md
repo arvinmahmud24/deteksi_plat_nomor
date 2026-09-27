@@ -140,9 +140,6 @@ Sistem ini memiliki **Siklus Umpan Balik Mandiri (Self-Learning Loop)** di mana 
 - Jika model ini ada, `main.py` beralih ke **Mode Hybrid (EasyOCR + PyTorch CNN)**, di mana pembacaan karakter menjadi jauh lebih presisi dan tahan terhadap gangguan pencahayaan maupun plat kotor.
 
 ---
-
-## Fitur Utama
-=======
 ## Fitur Utama
 - **Async Worker Queue (`AsyncOCRWorker`)**: Inferensi OCR berjalan di background thread pool sehingga preview video tetap lancar tanpa *lag*.
 - **ByteTrack & Multi-Frame Voting**: Mengakumulasi hasil OCR dari beberapa frame per ID kendaraan untuk mengunci hasil dengan confidence tertinggi.
