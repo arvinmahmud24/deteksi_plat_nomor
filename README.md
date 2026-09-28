@@ -82,8 +82,8 @@ Sistem ini bekerja secara otomatis dan real-time melalui 7 tahap utama:
 
 ---
 
-<<<<<<< HEAD
-## 🗄️ Hubungan Sistem dengan Dataset & Siklus Pelatihan (Dataset Lifecycle)
+
+## Hubungan Sistem dengan Dataset & Siklus Pelatihan (Dataset Lifecycle)
 
 Sistem ini memiliki **Siklus Umpan Balik Mandiri (Self-Learning Loop)** di mana hasil tangkapan kamera (*snapshots*) di dunia nyata otomatis dikonversi menjadi dataset baru untuk meningkatkan akurasi model PyTorch CNN dari waktu ke waktu.
 
@@ -142,11 +142,7 @@ Sistem ini memiliki **Siklus Umpan Balik Mandiri (Self-Learning Loop)** di mana 
 
 ---
 
-## 🌟 Fitur Utama
-=======
 ## Fitur Utama
->>>>>>> 4d72cdca27bc0d54850ae4f5af34ab2133d517a5
-
 - **Async Worker Queue (`AsyncOCRWorker`)**: Inferensi OCR berjalan di background thread pool sehingga preview video tetap lancar tanpa *lag*.
 - **ByteTrack & Multi-Frame Voting**: Mengakumulasi hasil OCR dari beberapa frame per ID kendaraan untuk mengunci hasil dengan confidence tertinggi.
 - **Log Excel Harian Auto-Embed**: Log tersimpan di `data/log_plat_YYYY-MM-DD.xlsx` dengan foto crop grayscale plat nomor langsung ter-embed di Kolom F.
@@ -162,7 +158,9 @@ Sistem ini memiliki **Siklus Umpan Balik Mandiri (Self-Learning Loop)** di mana 
 
 ```text
 d:\PLAT\
-├── main.py                     # Script utama ANPR & Gate Logger
+├── main.py                     # Script utama ANPR lengkap (Hybrid CNN+EasyOCR, ByteTrack, Multi-Thread Queue, Excel Embed, Snapshots)
+├── main2.py                    # Script ANPR menengah (YOLOv8 + ByteTrack + EasyOCR + Voting Log Excel)
+├── main3.py                    # Script ANPR sederhana (YOLOv8 Deteksi + Hitam-Putih Binarisasi + EasyOCR Realtime)
 ├── prepare_snapshot_dataset.py   # Generator dataset karakter dari snapshot CCTV
 ├── train_character.py          # Script pelatihan CNN (PlateCharNetV2)
 ├── README.md                   # Dokumentasi proyek
@@ -173,7 +171,7 @@ d:\PLAT\
 │   └── char_labels.json        # Mapping label kelas karakter
 │
 ├── assets/                     # Font & Aset Visual
-│   └── fonts/                  # Font khusus Plat Nomor Indonesia
+│   └── fonts/                  # Font khusus Plat Nomor Indonesia (PlatNomor-WyVnn.ttf / PlatNomor-eZ2dm.otf)
 │
 ├── data/                       # Log Spreadsheet Excel & Backup CSV
 ├── storage/                    # Simpanan Foto Snapshot Bukti
@@ -182,6 +180,23 @@ d:\PLAT\
 │
 └── scripts/                    # Helper scripts (RTSP, DroidCam, List Devices)
 ```
+
+---
+
+## Variasi Script ANPR (`main.py`, `main2.py`, `main3.py`)
+
+Proyek ini menyediakan 3 varian skrip sesuai dengan kebutuhan kompleksitas dan spesifikasi perangkat hardware:
+
+| Fitur / Skrip | `main.py` (Full ANPR System) | `main2.py` (Tracking & Logging) | `main3.py` (Simple Realtime) |
+|---|:---:|:---:|:---:|
+| **YOLOv8 Plate Detection** |  Ya |  Ya |  Ya |
+| **Object Tracking (ByteTrack)** |  Ya |  Ya |  Tidak |
+| **OCR Engine** | Hybrid EasyOCR + PyTorch CNN | EasyOCR | EasyOCR |
+| **Preprocessing Citra** | Upscaling + Cropping Top | Upscaling + Cropping Top | **Binarisasi Hitam-Putih (Otsu Threshold)** |
+| **Multi-Threading Async Queue** |  Ya |  Tidak |  Tidak |
+| **Multi-Frame Voting & Debouncing**|  Ya |  Ya |  Tidak |
+| **Logging Spreadsheet Excel** |  Ya (Lengkap + Foto Embed) |  Ya (Teks Log) |  Tidak |
+| **Format Font Kustom Plat Nomor**|  Ya |  Ya |  Ya |
 
 ---
 
@@ -194,12 +209,21 @@ Pastikan Python 3.10+ sudah terinstall:
 pip install ultralytics easyocr openpyxl opencv-python pillow numpy torch torchvision
 ```
 
-### 2. Jalankan Program Utama
-Jalankan aplikasi dengan kamera default/stream bawaan:
+### 2. Jalankan Aplikasi
+Pilih varian skrip sesuai kebutuhan sistem Anda:
 
-```bash
-python main.py
-```
+- **Mode Sistem ANPR Lengkap (Full Features & Gate Logger)**:
+  ```bash
+  python main.py --source 0
+  ```
+- **Mode Tracking & Log Excel Sederhana**:
+  ```bash
+  python main2.py --source 0
+  ```
+- **Mode Deteksi Real-Time Hitam-Putih Ringan (YOLOv8 + B&W EasyOCR)**:
+  ```bash
+  python main3.py --source 0
+  ```
 
 ### 3. Contoh Argumen Sumber Video
 

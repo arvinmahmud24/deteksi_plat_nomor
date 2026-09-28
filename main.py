@@ -843,26 +843,52 @@ def main():
                     track_last_seen.pop(t, None)
                     logged_tids.discard(t)
 
-            # ---------------- HEADER PANEL OVERLAY ----------------
+            # ---------------- PANEL INFO PLAT NOMOR KIRI ATAS ----------------
+            # Ambil plat nomor terbaru yang sedang/terakhir terdeteksi
+            latest_plate_text = "-"
+            if current_frame_tids:
+                for active_tid in current_frame_tids:
+                    with readings_lock:
+                        r_list = list(track_readings.get(active_tid, []))
+                    if r_list:
+                        latest_plate_text = r_list[-1][0]
+                        break
+
             now_ts = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
-            active_excel_log = get_daily_excel_path()
-            top_text_1 = f"CCTV: {camera_name}"
-            top_text_2 = f"Waktu: {now_ts}  |  Excel Log Harian: {active_excel_log}"
+            
+            # Teks Baris 1: Plat Nomor (Label di kiri, Hasil di kanan)
+            label_title = "Plat Nomor: "
+            val_title = latest_plate_text
+            full_title_text = f"{label_title}{val_title}"
 
-            b1 = header_font.getbbox(top_text_1)
-            b2 = sub_font.getbbox(top_text_2)
+            # Teks Baris 2: Info Tambahan Kamera & Waktu
+            sub_info_text = f"CCTV: {camera_name}  |  Waktu: {now_ts}"
 
-            w1, h1 = b1[2] - b1[0], b1[3] - b1[1]
-            w2, h2 = b2[2] - b2[0], b2[3] - b2[1]
+            b_label = plate_font.getbbox(label_title)
+            b_val = plate_font.getbbox(val_title)
+            b_sub = sub_font.getbbox(sub_info_text)
 
-            card_w = max(w1, w2) + 30
-            card_h = h1 + h2 + 22
+            w_title = (b_label[2] - b_label[0]) + (b_val[2] - b_val[0])
+            h_title = max(b_label[3] - b_label[1], b_val[3] - b_val[1])
+            w_sub, h_sub = b_sub[2] - b_sub[0], b_sub[3] - b_sub[1]
+
+            card_w = max(w_title, w_sub) + 30
+            card_h = h_title + h_sub + 22
             card_x1, card_y1 = 15, 15
             card_x2, card_y2 = card_x1 + card_w, card_y1 + card_h
 
+            # Gambar Card Panel Kiri Atas
             draw.rectangle([card_x1, card_y1, card_x2, card_y2], fill=(255, 255, 255), outline=(0, 0, 0), width=2)
-            draw.text((card_x1 + 15, card_y1 + 6), top_text_1, font=header_font, fill=(0, 0, 0))
-            draw.text((card_x1 + 15, card_y1 + 10 + h1), top_text_2, font=sub_font, fill=(60, 60, 60))
+            
+            # Tulisan "Plat Nomor: " di kiri
+            draw.text((card_x1 + 15, card_y1 + 6), label_title, font=plate_font, fill=(0, 0, 0))
+            # Hasil Pembacaan Plat Nomor di sebelah kanannya (Warna Biru / Merah Kontras)
+            x_val_pos = card_x1 + 15 + (b_label[2] - b_label[0])
+            val_color = (0, 102, 204) if latest_plate_text != "-" else (120, 120, 120)
+            draw.text((x_val_pos, card_y1 + 6), val_title, font=plate_font, fill=val_color)
+
+            # Sub-info di bawahnya
+            draw.text((card_x1 + 15, card_y1 + 12 + h_title), sub_info_text, font=sub_font, fill=(80, 80, 80))
 
             annotated_frame = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
 
